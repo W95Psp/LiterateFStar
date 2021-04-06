@@ -28,11 +28,9 @@
                            ];
                           })
                   );
-              build-example = 
-                (pkgs.writeScriptBin "build-example"
-                  ''${packages.fstar}/bin/fstar.exe --unsafe_tactic_exec Literate.Example.fst
-                  ''
-                );
+            };
+            apps = {
+              build = pkgs.writeScriptBin "build" "${packages.fstar}/bin/fstar.exe --unsafe_tactic_exec Literate.Example.fst";
             };
             defaultPackage = packages.fstar;
           }

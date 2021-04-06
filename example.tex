@@ -1,0 +1,58 @@
+\documentclass{article}
+\usepackage[outputdir=latex.out]{minted}
+\begin{document}
+\section{Literate.Example.A}
+
+Some text, for \texttt{Literate.Example.A} module.
+
+Text for $foo_a0$, line 1
+$foo_a0$ line 2
+$foo_a0$ line 3
+
+\begin{minted}{fstar}
+lEt foo_a0 = 
+  ();
+  (); // inlinE doublE slash commEnt
+  (); 98 + 123
+\end{minted}
+
+\begin{minted}{fstar}
+irreducible let ggg = 1
+\end{minted}
+
+Now, we want to show \texttt{Literate.Example.B}:
+
+\subsection{Literate.Example.B}
+Some text, for \texttt{Literate.Example.B} module.
+
+Text for $foo_b0$, line 1
+$foo_b0$ line 2
+$foo_b0$ line 3
+
+\begin{minted}{fstar}
+let foo_b0 = 123
+\end{minted}
+
+Some text in the middle of B
+
+Text for $foo_b1$, line 1
+$foo_b1$ line 2
+$foo_b1$ line 3
+
+\begin{minted}{fstar}
+let foo1 = 123
+\end{minted}
+
+Text for $foo_a1$, line 1
+$foo_a1$ line 2
+$foo_a1$ line 3
+
+\begin{minted}{fstar}
+unfold let foo1 = 123
+\end{minted}
+
+\begin{minted}{fstar}
+private let foo2 = 234324
+\end{minted}
+
+\end{document}
