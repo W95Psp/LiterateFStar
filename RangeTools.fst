@@ -24,9 +24,11 @@ let contents_of_file (path: string)
   : Tac string
   = launch_process "cat" [path] ""
 
+
 let find_range_in_file (r: rng_view)
   : Tac string
-  = let (start_line, start_col) = r.start_pos in
+  = try (
+    let (start_line, start_col) = r.start_pos in
     let (end_line, end_col) = r.end_pos in
     if end_line < start_line || start_line < 1
     then fail ("find_range_in_file: malformed range, end line is before start line (" ^ rng_view_to_string r ^ ")")
@@ -42,3 +44,7 @@ let find_range_in_file (r: rng_view)
     let n:nat = if end_line = start_line then end_col - start_col else end_col in
     let sel = L.init sel@[take_str (L.last sel) n] in
     String.concat "\n" sel
+    ) with
+    | TacticFailure e -> e
+    | e -> raise e
+

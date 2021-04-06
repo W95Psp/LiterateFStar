@@ -73,6 +73,7 @@ let fusion_comment (rx,x) (ry,y) =
    // let sep = "\n" ^ (if right_after rx ry then "" else "\n") in
    fusion_rng_view rx ry, Comment k (x ^ sep ^ y)
 
+// TODO generalize that so that Declaration bundles are fusiionned as well
 let is_comment_group a b 
         = match a, b with
         | (r0,Comment k0 _), (r1,Comment k1 _) -> k0 <> CommandComment && k0 = k1 && common_comment r0 r1
@@ -81,6 +82,28 @@ let is_annot_group a b
     = match a, b with
       | (r0,Comment AnnotComment _), (r1,Declaration _ _) -> true
       | _ -> false
+
+let strPrefix (pre s: string): bool
+  = let pl = String.length pre in
+    if pl > String.length s
+    then false
+    else pre = String.sub s 0 pl
+
+let isUppercase =
+  function |'A'|'B'|'C'|'D'|'E'|'F'|'G'|'H'|'I'|'J'|'K'|'L'|'M'|'N'|'O'
+           |'P'|'Q'|'R'|'S'|'T'|'U'|'V'|'W'|'X'|'Y'|'Z' -> true 
+           | _ -> false
+
+let is_actual_sigelt (n: name): bool = 
+  match n with
+  | [] -> false
+  | _  -> let last = L.last n in
+         not ( strPrefix "uu__" last
+             || strPrefix "__" last
+             || (match String.list_of_string last with
+               | [] -> false | hd::_ -> isUppercase hd
+               )
+             )
 
 let rec modul_concat_comments (m: modul)
   : Tac _
@@ -110,9 +133,20 @@ let rec modul_concat_comments (m: modul)
                            )
                | r,x -> [r,x]
     ) fragments) in
+    // remove dummy rangers (aka generated definition)
+    let fragments = L.filter #(_*module_fragment)
+      (fun (r,_) -> r.file_name <> "<dummy>"
+      ) fragments
+    in
     let fragments = L.filter #(_*module_fragment)
       (fun (_,x) -> match x with
                | Comment (SlashComment 0) _ -> false
+               | _ -> true
+      ) fragments
+    in 
+    let fragments = L.filter #(_*module_fragment)
+      (fun (_,x) -> match x with
+               | Declaration n _ -> is_actual_sigelt n
                | _ -> true
       ) fragments
     in 
@@ -183,7 +217,8 @@ let generic_renderer
                  fF r f original_text
                | _ -> "[ERROR:printer not found "^printer_name^"]"
                )
-        | None -> original_text ()
+        | None -> // String.concat "." n ^ " >> " ^
+                 original_text ()
       in
       preambule_decl ^ body ^ postamble_decl
 
