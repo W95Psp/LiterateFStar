@@ -8,6 +8,16 @@ ability to lookup the comments associated with a module.
 Then a F* meta-program withing F* extract code blocks and comments so
 that it is rendered as LaTeX.
 
+## How to use
+This repo uses a specific F* build, with a few patches (see
+`/patches`).
+
+`nix run .#build` will build that F* version and build the example
+`Literate.Example`.
+
+Otherwise, `nix shell` will get you a shell with the correct, patched
+F*.
+
 ## Load other module / raw LaTeX
 Include the LaTeX generated for a given module:
 ```
