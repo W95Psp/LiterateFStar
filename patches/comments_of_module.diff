@@ -1,0 +1,66 @@
+diff --git a/src/reflection/FStar.Reflection.Basic.fs b/src/reflection/FStar.Reflection.Basic.fs
+index e3516b14c7..5609b6fe9a 100644
+--- a/src/reflection/FStar.Reflection.Basic.fs
++++ b/src/reflection/FStar.Reflection.Basic.fs
+@@ -422,6 +422,15 @@ let lookup_sigelt_range (env:Env.env) (ns:list<string>) : option<Range.range> =
+     | None -> None
+     | Some (_, rng) -> Some rng
+ 
++let comments_of_module (ns:list<string>): list<(string*Range.range)>
++  = let path = String.concat "." ns ^ ".fst" in // TODO: take care of
++                                                // search path +
++                                                // interfaces, I guess
++                                                // this already exist
++                                                // somewhere
++    let _,comments = FStar.Parser.Driver.parse_file path in
++    comments
++
+ let sigelt_attrs (se : sigelt) : list<attribute> =
+     se.sigattrs
+ 
+diff --git a/src/reflection/FStar.Reflection.Basic.fsi b/src/reflection/FStar.Reflection.Basic.fsi
+index 100a4edb3d..eacb89592f 100644
+--- a/src/reflection/FStar.Reflection.Basic.fsi
++++ b/src/reflection/FStar.Reflection.Basic.fsi
+@@ -77,3 +77,6 @@ val push_binder    : Env.env -> binder -> Env.env
+ val inspect_range: Range.range -> rng_view
+ val range_of_term: term -> Range.range
+ val range_of_sigelt: sigelt -> Range.range
++val comments_of_module: list<string> -> list<(string*Range.range)>
++
++
+diff --git a/src/reflection/FStar.Reflection.Interpreter.fs b/src/reflection/FStar.Reflection.Interpreter.fs
+index c6f8017c29..1d82ff3197 100644
+--- a/src/reflection/FStar.Reflection.Interpreter.fs
++++ b/src/reflection/FStar.Reflection.Interpreter.fs
+@@ -236,11 +236,16 @@ let reflection_primops : list<Cfg.primitive_step> = [
+     mk1 "inspect_range"         inspect_range         e_range             E.e_rng_view
+                                 inspect_range         NBET.e_range        NRE.e_rng_view;
+ 
+-    mk1 "range_of_term"         range_of_term        E.e_term            e_range
+-                                range_of_term        NRE.e_term          NBET.e_range;
++    mk1 "range_of_term"         range_of_term         E.e_term            e_range
++                                range_of_term         NRE.e_term          NBET.e_range;
+ 
+-    mk1 "range_of_sigelt"       range_of_sigelt      E.e_sigelt            e_range
+-                                range_of_sigelt      NRE.e_sigelt          NBET.e_range;
++    mk1 "range_of_sigelt"       range_of_sigelt       E.e_sigelt          e_range
++                                range_of_sigelt       NRE.e_sigelt        NBET.e_range;
++
++    mk1 "comments_of_module"    comments_of_module    e_string_list       (e_list (e_tuple2 e_string e_range))
++                                comments_of_module    NBET.e_string_list  (NBET.e_list (NBET.e_tuple2 NBET.e_string NBET.e_range));
+ ]
++// val comments_of_module: list<string> -> list<(string*Range.range)>
++
+ 
+ let _ = List.iter FStar.TypeChecker.Cfg.register_extra_step reflection_primops
+diff --git a/ulib/FStar.Reflection.Builtins.fsti b/ulib/FStar.Reflection.Builtins.fsti
+index ff310c7758..a5cc25d960 100644
+--- a/ulib/FStar.Reflection.Builtins.fsti
++++ b/ulib/FStar.Reflection.Builtins.fsti
+@@ -102,3 +102,5 @@ val subst : bv -> term -> term -> term
+ val inspect_range: range -> rng_view
+ val range_of_term: term -> range
+ val range_of_sigelt: sigelt -> range
++val comments_of_module: name -> list (string * range)
++
