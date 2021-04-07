@@ -61,22 +61,25 @@ let lookup_modul (m: name): Tac modul
     ; module_name = m
     }
 
-let right_after (r0 r1:rng_view): bool = fst r0.end_pos + 1 = fst r1.start_pos
-let common_comment r0 r1 = right_after r0 r1 
+let right_after (r0 r1:rng_view): bool
+  = fst r0.end_pos + 1 = fst r1.start_pos || fst r0.end_pos = fst r1.start_pos
+let are_ranges_bundle r0 r1 = right_after r0 r1 
                          || fst r0.end_pos + 2 = fst r1.start_pos 
 
-let fusion_comment (rx,x) (ry,y) =
-   guard (Comment? x && Comment? y);
-   let Comment k x = x in
-   let Comment _ y = y in
-   let sep = "\n" in
-   // let sep = "\n" ^ (if right_after rx ry then "" else "\n") in
-   fusion_rng_view rx ry, Comment k (x ^ sep ^ y)
+let fusion_as_bundle (rx,x) (ry,y) =
+   let rxy = fusion_rng_view rx ry in
+   match x, y with
+   | Comment k x, Comment _ y -> 
+        let sep = "\n" in
+        rxy, Comment k (x ^ sep ^ y)
+   | Declaration n0 a0, Declaration n1 _ ->
+        rxy, Declaration (n0 @ ("+"::n1)) a0
+   | _ -> fail "fusion_as_bundle: got heterogenous blocks"
 
-// TODO generalize that so that Declaration bundles are fusiionned as well
-let is_comment_group a b 
+let is_bundle a b 
         = match a, b with
-        | (r0,Comment k0 _), (r1,Comment k1 _) -> k0 <> CommandComment && k0 = k1 && common_comment r0 r1
+        | (r0,Comment k0 _), (r1,Comment k1 _) -> k0 <> CommandComment && k0 = k1 && are_ranges_bundle r0 r1
+        | (r0, Declaration _ a0), (r1, Declaration _ a1) -> a0=a1 && are_ranges_bundle r0 r1
         | _ -> false
 let is_annot_group a b 
     = match a, b with
@@ -116,17 +119,22 @@ let rec modul_concat_comments (m: modul)
     in 
     let fragments = m.fragments in
     let h f g fragments = map (fold_left'_tac f) (groupBy' g fragments) in
-    let fragments = h fusion_comment is_comment_group fragments in
+    let fragments = h fusion_as_bundle is_bundle fragments in
     let fragments = h fusion_annot   is_annot_group   fragments in
     let fragments = L.filter #(_*module_fragment)
       (fun (_,x) -> not (Declaration? x && L.mem "hide" (Declaration?.annots x))
       ) fragments
     in 
-    let fragments = h fusion_comment is_comment_group fragments in
+    let fragments = h fusion_as_bundle is_bundle fragments in
     let fragments = L.flatten (map (
       function | r,Comment CommandComment body ->
                            let args = String.split ['.';' '] body in
                            ( match args with
+                           | "show"::n -> (
+                                      match lookup_sigelt_range (top_env ()) n with
+                                    | Some r -> [inspect_range r, Declaration n []]
+                                    | None -> fail ("Cannot 'show' definition "^String.concat "." n)
+                           )
                            | "raw"::file -> [r,Comment (SlashComment 0) (contents_of_file (String.concat "." file))]
                            | "open"::file -> (modul_concat_comments (lookup_modul file)).fragments
                            | _ -> fail ("Unknown command: " ^ String.concat "." args)
@@ -222,7 +230,7 @@ let generic_renderer
       in
       preambule_decl ^ body ^ postamble_decl
 
-let latex_renderer: renderer = generic_renderer (fun s _ _ _ -> s) "\\begin{minted}{fstar}\n" "\n\\end{minted}"
+let latex_renderer: renderer = generic_renderer (fun s _ _ _ -> s) "\\begin{fstarcode}\n" "\n\\end{fstarcode}"
 
 let modul_to_latex = render_modul_as latex_renderer
 
