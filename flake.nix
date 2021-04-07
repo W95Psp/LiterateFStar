@@ -17,6 +17,14 @@
           lib = pkgs.lib;
         in
           rec {
+            fstar-libs = {
+              literate-fst-lib = pkgs.stdenv.mkDerivation {
+                name = "literate-fst-lib";
+                src = pkgs.lib.cleanSourceWith {filter = path: type: pkgs.lib.hasSuffix ".fst" path; src = ./.;};
+                buildPhase = "true";
+                installPhase = "mkdir $out; cp * $out/";
+              };
+            };
             packages = {
               fstar =
                 tools.perform-fstar-to-ocaml master
