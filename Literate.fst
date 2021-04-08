@@ -108,6 +108,20 @@ let is_actual_sigelt (n: name): bool =
                )
              )
 
+let parse_option (str: string): option (string * string)
+  = match String.split ['='] str with
+  | key::tl -> let value = String.concat "=" tl in
+             Some (key,value)
+  | _ -> None
+
+let parse_options (ss: list string): list (string * string)
+  = L.flatten (L.map (function | Some x -> [x] | _ -> []) (L.map parse_option ss))
+
+let lookup_opt (ss: list (string * string)) (key: string): option string
+  = match L.find (fun (k,v) -> k = key) ss with
+  | Some (_,v) -> Some v
+  | _ -> None
+
 let rec modul_concat_comments (m: modul)
   : Tac _
   = let fusion_annot: (rng_view*module_fragment) -> _ -> Tac _ = fun (rx,x) (ry,y) ->
@@ -121,6 +135,18 @@ let rec modul_concat_comments (m: modul)
     let h f g fragments = map (fold_left'_tac f) (groupBy' g fragments) in
     let fragments = h fusion_as_bundle is_bundle fragments in
     let fragments = h fusion_annot   is_annot_group   fragments in
+    let fragments = L.map #(_*module_fragment)
+      (fun (r,x) -> match x with
+               | Declaration _ annots -> 
+                 ( (match lookup_opt (parse_options annots) "offset-start-line" with
+                 | Some "-1" -> {r with start_pos = (fst r.start_pos - 1, snd r.start_pos)}
+                 | Some "-2" -> {r with start_pos = (fst r.start_pos - 2, snd r.start_pos)}
+                 | Some "-3" -> {r with start_pos = (fst r.start_pos - 3, snd r.start_pos)}
+                 | _ -> r)
+                 , x)
+               | _ -> (r,x)
+      ) fragments
+    in 
     let fragments = L.filter #(_*module_fragment)
       (fun (_,x) -> not (Declaration? x && L.mem "hide" (Declaration?.annots x))
       ) fragments
@@ -165,20 +191,6 @@ type renderer = rng_view -> module_fragment -> (unit -> Tac string) -> Tac strin
 let render_modul_as (render: renderer) m
   = let m = modul_concat_comments (lookup_modul m) in
     String.concat "\n\n" (map (fun (r,f) -> render r f (fun _ -> find_range_in_file r)) m.fragments)
-
-let parse_option (str: string): option (string * string)
-  = match String.split ['='] str with
-  | key::tl -> let value = String.concat "=" tl in
-             Some (key,value)
-  | _ -> None
-
-let parse_options (ss: list string): list (string * string)
-  = L.flatten (L.map (function | Some x -> [x] | _ -> []) (L.map parse_option ss))
-
-let lookup_opt (ss: list (string * string)) (key: string): option string
-  = match L.find (fun (k,v) -> k = key) ss with
-  | Some (_,v) -> Some v
-  | _ -> None
 
 let qualifier_to_string =
   function   | Assumption -> Some "assmume"
