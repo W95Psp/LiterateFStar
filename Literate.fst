@@ -274,19 +274,22 @@ let generic_renderer
         then original_text
         else (fun _ -> (if attrs_str = "" then "" else attrs_str ^ " ") ^ original_text ()) in
       let body = match opt "printer" with
-        | Some printer_name -> 
-               let printer_name = trim printer_name in
+        | Some printer_instruction -> 
+               let printer_instruction = trim printer_instruction in
+               let chunks = String.split ['|'] printer_instruction in
+               guard (Cons? chunks);
+               let printer_name::chunks = chunks in
                let fv = explode_qn printer_name in
                ( match lookup_typ (top_env ()) fv with
                | Some t -> 
                  let fT: term = Tv_FVar (pack_fv fv) in
-                 let fF: renderer = 
-                   ( match String.split ['×'] printer_name with
-                   | [] | _::[] -> unquote fT
-                   | _::a0::[] -> (unquote fT <: string -> renderer) a0
-                   | _::a0::a1::[] -> (unquote fT <: string -> string -> renderer) a0 a1
-                   | _::a0::a1::a2::[] -> (unquote fT <: string -> string -> string -> renderer) a0 a1 a2
-                   | _::a0::a1::a2::a3::[] -> (unquote fT <: string -> string -> string -> string -> renderer) a0 a1 a2 a3
+                 let fF: renderer =
+                   ( match chunks with
+                   | [] -> unquote fT
+                   | [a0] -> (unquote fT <: string -> renderer) a0
+                   | [a0;a1] -> (unquote fT <: string -> string -> renderer) a0 a1
+                   | [a0;a1;a2] -> (unquote fT <: string -> string -> string -> renderer) a0 a1 a2
+                   | [a0;a1;a2;a3] -> (unquote fT <: string -> string -> string -> string -> renderer) a0 a1 a2 a3
                    | _ -> fail "The attribute 'printer' support up to 4 arguments only for now."
                    )
                  in
