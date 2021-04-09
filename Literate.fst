@@ -150,7 +150,7 @@ let fusion_annot: (rng_view*module_fragment) -> _ -> Tac _ = fun (rx,x) (ry,y) -
       let Comment k annot = x in
       guard (AnnotComment? k);
       let Declaration c annots = y in
-      ry, Declaration c (String.split [';';'\n'] annot@annots)
+      ry, Declaration c (String.split ['\n'] annot@annots)
 
 let rec modul_concat_comments' (m: modul)
   : Tac modul
@@ -275,11 +275,21 @@ let generic_renderer
         else (fun _ -> (if attrs_str = "" then "" else attrs_str ^ " ") ^ original_text ()) in
       let body = match opt "printer" with
         | Some printer_name -> 
+               let printer_name = trim printer_name in
                let fv = explode_qn printer_name in
                ( match lookup_typ (top_env ()) fv with
                | Some t -> 
                  let fT: term = Tv_FVar (pack_fv fv) in
-                 let fF: renderer = unquote fT in
+                 let fF: renderer = 
+                   ( match String.split [' '] printer_name with
+                   | [] | _::[] -> unquote fT
+                   | _::a0::[] -> (unquote fT <: string -> renderer) a0
+                   | _::a0::a1::[] -> (unquote fT <: string -> string -> renderer) a0 a1
+                   | _::a0::a1::a2::[] -> (unquote fT <: string -> string -> string -> renderer) a0 a1 a2
+                   | _::a0::a1::a2::a3::[] -> (unquote fT <: string -> string -> string -> string -> renderer) a0 a1 a2 a3
+                   | _ -> fail "The attribute 'printer' support up to 4 arguments only for now."
+                   )
+                 in
                  fF r f original_text
                | _ -> "[ERROR:printer not found "^printer_name^"]"
                )
