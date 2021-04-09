@@ -181,13 +181,13 @@ let rec modul_concat_comments' (m: modul)
     let fragments = map #(_*module_fragment)
       (fun (r,x) -> match x with
                | Declaration n annots -> 
-                 let f: _ -> _ -> Tac _ = fun (annots',r') annot ->
+                 let f: _ -> _ -> Tac _ = fun (annots',r) annot ->
                    let k, v = parse_option annot in
                    match k with
                    | "offset-start-line" -> annots', (match v with
-                                         | "-1" -> {r' with start_pos = (fst r.start_pos - 1, snd r.start_pos)}
-                                         | "-2" -> {r' with start_pos = (fst r.start_pos - 2, snd r.start_pos)}
-                                         | "-3" -> {r' with start_pos = (fst r.start_pos - 3, snd r.start_pos)}
+                                         | "-1" -> {r with start_pos = (fst r.start_pos - 1, snd r.start_pos)}
+                                         | "-2" -> {r with start_pos = (fst r.start_pos - 2, snd r.start_pos)}
+                                         | "-3" -> {r with start_pos = (fst r.start_pos - 3, snd r.start_pos)}
                                          | _ -> r)
                    | "signature-only" -> annots', {r with end_pos = (fst r.start_pos, 1000)}
                    | _ -> annot::annots', r
