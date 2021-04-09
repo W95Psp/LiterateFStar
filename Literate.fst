@@ -220,7 +220,7 @@ let rec modul_concat_comments' (m: modul)
     { m with fragments = fragments }
 
 let rec modul_concat_comments (m: modul): Tac modul
-  = print ("[modul_concat_comments]\n" ^ debug_modul m);
+  = //print ("[modul_concat_comments]\n" ^ debug_modul m);
     let m' = modul_concat_comments' m in
     if modul_eq m' m then m' else modul_concat_comments m'
   
