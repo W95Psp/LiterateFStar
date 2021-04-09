@@ -101,8 +101,8 @@ let fusion_as_bundle (rx,x) (ry,y) =
 
 let is_bundle a b 
         = match a, b with
-        | (r0,Comment k0 _), (r1,Comment k1 _) -> k0 <> CommandComment && k0 = k1 // && are_ranges_bundle r0 r1
-        | (r0, Declaration _ a0), (r1, Declaration _ a1) -> a0=a1                // && are_ranges_bundle r0 r1
+        | (r0,Comment k0 _), (r1,Comment k1 _) -> k0 <> CommandComment && k0 = k1 && are_ranges_bundle r0 r1
+        | (r0, Declaration _ a0), (r1, Declaration _ a1) -> a0=a1                && are_ranges_bundle r0 r1
         | _ -> false
 let is_annot_group a b 
     = match a, b with
@@ -227,8 +227,16 @@ let rec modul_concat_comments (m: modul): Tac modul
 type renderer = rng_view -> module_fragment -> (unit -> Tac string) -> Tac string
 
 let render_modul_as (render: renderer) m
+  : Tac string
   = let m = modul_concat_comments (lookup_modul m) in
-    String.concat "\n\n" (map (fun (r,f) -> render r f (fun _ -> find_range_in_file r)) m.fragments)
+    // take care of inserting two endlines only when necessary
+    let r = fold_left (fun (wasCom,acc) (isCom,s) -> 
+                      isCom
+                   , (if String.length acc = 0 then s else (if isCom = wasCom then acc ^ "\n" ^ s else acc ^ "\n\n" ^ s))
+                   )
+                   (true, "")
+                   (map (fun (r,f) -> (Comment? f, render r f (fun _ -> find_range_in_file r))) m.fragments) in
+    snd r
 
 let qualifier_to_string =
   function   | Assumption -> Some "assmume"
