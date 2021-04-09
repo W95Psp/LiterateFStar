@@ -12,7 +12,7 @@ type comment_kind
     | AnnotComment
     | CommandComment
 
-noeq type module_fragment =
+type module_fragment =
   | Comment: k:comment_kind -> v:string -> module_fragment
   | Declaration: n:name -> annots:list string -> module_fragment
 
@@ -20,6 +20,29 @@ noeq type modul =
   { fragments: list (rng_view*module_fragment)
   ; module_name: name
   }
+
+let debug_module_fragment
+  = function | Comment _ v -> "(* " ^ String.concat "\\n" (String.split ['\n'] v) ^ " *)"
+             | Declaration n annots -> "## " ^ String.concat "." n ^ " @"^String.concat ";" annots
+
+let debug_modul m =
+  "\n\n# " ^ String.concat "." m.module_name ^ "\n" ^
+  String.concat "\n" (map (fun (r,f) -> debug_module_fragment f ^ "   " ^ rng_view_to_string r) m.fragments)
+      
+val zip: list 'a -> list 'b -> (list ('a & 'b))
+let rec zip l1 l2 = match l1,l2 with
+    | hd1::tl1, hd2::tl2 -> (hd1,hd2)::(zip tl1 tl2)
+    | _ -> []
+
+let rng_view_eq (x y: rng_view): bool
+  =  x.file_name = y.file_name
+  && x.start_pos = y.start_pos
+  && x.end_pos   = y.end_pos
+
+let modul_eq (x y: modul): bool
+  = x.module_name = y.module_name
+  && L.length x.fragments = L.length y.fragments
+  && (L.for_all (fun ((r0,f0), (r1,f1)) -> f0 = f1 && rng_view_eq r0 r1) (zip x.fragments y.fragments))
 
 let trimLeft' (s: list String.char): list String.char = dsnd (takeWhile (fun x -> L.mem x [' ';'\n']) s)
 let trimLeft (s: string): string = String.string_of_list (trimLeft' (String.list_of_string s))
@@ -108,14 +131,14 @@ let is_actual_sigelt (n: name): bool =
                )
              )
 
-let parse_option (str: string): option (string * string)
+let parse_option (str: string): (string * string)
   = match String.split ['='] str with
   | key::tl -> let value = String.concat "=" tl in
-             Some (key,value)
-  | _ -> None
+             (key,value)
+  | _ -> (str,"")
 
 let parse_options (ss: list string): list (string * string)
-  = L.flatten (L.map (function | Some x -> [x] | _ -> []) (L.map parse_option ss))
+  = L.map parse_option ss
 
 let lookup_opt (ss: list (string * string)) (key: string): option string
   = match L.find (fun (k,v) -> k = key) ss with
@@ -129,8 +152,8 @@ let fusion_annot: (rng_view*module_fragment) -> _ -> Tac _ = fun (rx,x) (ry,y) -
       let Declaration c annots = y in
       ry, Declaration c (String.split [';';'\n'] annot@annots)
 
-let rec modul_concat_comments (m: modul)
-  : Tac _
+let rec modul_concat_comments' (m: modul)
+  : Tac modul
   = let fragments = m.fragments in
     // remove dummy rangers (aka generated definition)
     let fragments = L.filter #(_*module_fragment)
@@ -154,16 +177,22 @@ let rec modul_concat_comments (m: modul)
     let h f g fragments = map (fold_left'_tac f) (groupBy' g fragments) in
     let fragments = h fusion_as_bundle is_bundle fragments in
     let fragments = h fusion_annot   is_annot_group   fragments in
-    let fragments = L.map #(_*module_fragment)
+    let fragments = map #(_*module_fragment)
       (fun (r,x) -> match x with
-               | Declaration _ annots -> 
-                 let r = match lookup_opt (parse_options annots) "offset-start-line" with
-                 | Some "-1" -> {r with start_pos = (fst r.start_pos - 1, snd r.start_pos)}
-                 | Some "-2" -> {r with start_pos = (fst r.start_pos - 2, snd r.start_pos)}
-                 | Some "-3" -> {r with start_pos = (fst r.start_pos - 3, snd r.start_pos)}
-                 | _ -> r in 
-                 let r = (if L.mem "signature-only" annots then ({r with end_pos = (fst r.start_pos, 1000)}) else r) in
-                 r, x
+               | Declaration n annots -> 
+                 let f: _ -> _ -> Tac _ = fun (annots',r') annot ->
+                   let k, v = parse_option annot in
+                   match k with
+                   | "offset-start-line" -> annots', (match v with
+                                         | "-1" -> {r' with start_pos = (fst r.start_pos - 1, snd r.start_pos)}
+                                         | "-2" -> {r' with start_pos = (fst r.start_pos - 2, snd r.start_pos)}
+                                         | "-3" -> {r' with start_pos = (fst r.start_pos - 3, snd r.start_pos)}
+                                         | _ -> r)
+                   | "signature-only" -> annots', {r with end_pos = (fst r.start_pos, 1000)}
+                   | _ -> annot::annots', r
+                 in
+                 let annots, r = fold_left f ([],r) annots in
+                 r, Declaration n annots
                | _ -> (r,x)
       ) fragments
     in 
@@ -182,13 +211,17 @@ let rec modul_concat_comments (m: modul)
                                     | None -> fail ("Cannot 'show' definition "^String.concat "." n)
                            )
                            | "raw"::file -> [r,Comment (SlashComment 0) (contents_of_file (String.concat "." file))]
-                           | "open"::file -> (modul_concat_comments (lookup_modul file)).fragments
+                           | "open"::file -> (modul_concat_comments' (lookup_modul file)).fragments
                            | _ -> fail ("Unknown command: " ^ String.concat "." args)
                            )
                | r,x -> [r,x]
     ) fragments) in
     { m with fragments = fragments }
 
+let rec modul_concat_comments (m: modul): Tac modul
+  = let m' = modul_concat_comments' m in
+    if modul_eq m' m then m' else modul_concat_comments m'
+  
 type renderer = rng_view -> module_fragment -> (unit -> Tac string) -> Tac string
 
 let render_modul_as (render: renderer) m
