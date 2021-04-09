@@ -163,7 +163,8 @@ let rec modul_concat_comments' (m: modul)
     // remove irrelevant comments (aka non triple slash ones)
     let fragments = L.filter #(_*module_fragment)
       (fun (_,x) -> match x with
-               | Comment (SlashComment 0) _ -> false
+               | Comment (SlashComment 0) _ 
+               | Comment (StarComment _) _ -> false
                | _ -> true
       ) fragments
     in 
@@ -219,7 +220,8 @@ let rec modul_concat_comments' (m: modul)
     { m with fragments = fragments }
 
 let rec modul_concat_comments (m: modul): Tac modul
-  = let m' = modul_concat_comments' m in
+  = print ("[modul_concat_comments]\n" ^ debug_modul m);
+    let m' = modul_concat_comments' m in
     if modul_eq m' m then m' else modul_concat_comments m'
   
 type renderer = rng_view -> module_fragment -> (unit -> Tac string) -> Tac string
