@@ -281,7 +281,7 @@ let generic_renderer
                | Some t -> 
                  let fT: term = Tv_FVar (pack_fv fv) in
                  let fF: renderer = 
-                   ( match String.split [' '] printer_name with
+                   ( match String.split ['×'] printer_name with
                    | [] | _::[] -> unquote fT
                    | _::a0::[] -> (unquote fT <: string -> renderer) a0
                    | _::a0::a1::[] -> (unquote fT <: string -> string -> renderer) a0 a1
