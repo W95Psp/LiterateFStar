@@ -176,8 +176,8 @@ let rec modul_concat_comments' (m: modul)
       ) fragments
     in
     let h f g fragments = map (fold_left'_tac f) (groupBy' g fragments) in
-    let fragments = h fusion_as_bundle is_bundle fragments in
     let fragments = h fusion_annot   is_annot_group   fragments in
+    let fragments = h fusion_as_bundle is_bundle fragments in
     let fragments = map #(_*module_fragment)
       (fun (r,x) -> match x with
                | Declaration n annots -> 
