@@ -122,28 +122,48 @@ let lookup_opt (ss: list (string * string)) (key: string): option string
   | Some (_,v) -> Some v
   | _ -> None
 
-let rec modul_concat_comments (m: modul)
-  : Tac _
-  = let fusion_annot: (rng_view*module_fragment) -> _ -> Tac _ = fun (rx,x) (ry,y) ->
+let fusion_annot: (rng_view*module_fragment) -> _ -> Tac _ = fun (rx,x) (ry,y) ->
       guard (Comment? x && Declaration? y);
       let Comment k annot = x in
       guard (AnnotComment? k);
       let Declaration c annots = y in
       ry, Declaration c (String.split [';';'\n'] annot@annots)
+
+let rec modul_concat_comments (m: modul)
+  : Tac _
+  = let fragments = m.fragments in
+    // remove dummy rangers (aka generated definition)
+    let fragments = L.filter #(_*module_fragment)
+      (fun (r,_) -> r.file_name <> "<dummy>"
+      ) fragments
+    in
+    // remove irrelevant comments (aka non triple slash ones)
+    let fragments = L.filter #(_*module_fragment)
+      (fun (_,x) -> match x with
+               | Comment (SlashComment 0) _ -> false
+               | _ -> true
+      ) fragments
     in 
-    let fragments = m.fragments in
+    // remove projectors or stuff like that (i.e. uu__.*)
+    let fragments = L.filter #(_*module_fragment)
+      (fun (_,x) -> match x with
+               | Declaration n _ -> is_actual_sigelt n
+               | _ -> true
+      ) fragments
+    in
     let h f g fragments = map (fold_left'_tac f) (groupBy' g fragments) in
     let fragments = h fusion_as_bundle is_bundle fragments in
     let fragments = h fusion_annot   is_annot_group   fragments in
     let fragments = L.map #(_*module_fragment)
       (fun (r,x) -> match x with
                | Declaration _ annots -> 
-                 ( (match lookup_opt (parse_options annots) "offset-start-line" with
+                 let r = match lookup_opt (parse_options annots) "offset-start-line" with
                  | Some "-1" -> {r with start_pos = (fst r.start_pos - 1, snd r.start_pos)}
                  | Some "-2" -> {r with start_pos = (fst r.start_pos - 2, snd r.start_pos)}
                  | Some "-3" -> {r with start_pos = (fst r.start_pos - 3, snd r.start_pos)}
-                 | _ -> r)
-                 , x)
+                 | _ -> r in 
+                 let r = (if L.mem "signature-only" annots then ({r with end_pos = (fst r.start_pos, 1000)}) else r) in
+                 r, x
                | _ -> (r,x)
       ) fragments
     in 
@@ -151,7 +171,7 @@ let rec modul_concat_comments (m: modul)
       (fun (_,x) -> not (Declaration? x && L.mem "hide" (Declaration?.annots x))
       ) fragments
     in 
-    let fragments = h fusion_as_bundle is_bundle fragments in
+    // let fragments = h fusion_as_bundle is_bundle fragments in
     let fragments = L.flatten (map (
       function | r,Comment CommandComment body ->
                            let args = String.split ['.';' '] body in
@@ -167,23 +187,6 @@ let rec modul_concat_comments (m: modul)
                            )
                | r,x -> [r,x]
     ) fragments) in
-    // remove dummy rangers (aka generated definition)
-    let fragments = L.filter #(_*module_fragment)
-      (fun (r,_) -> r.file_name <> "<dummy>"
-      ) fragments
-    in
-    let fragments = L.filter #(_*module_fragment)
-      (fun (_,x) -> match x with
-               | Comment (SlashComment 0) _ -> false
-               | _ -> true
-      ) fragments
-    in 
-    let fragments = L.filter #(_*module_fragment)
-      (fun (_,x) -> match x with
-               | Declaration n _ -> is_actual_sigelt n
-               | _ -> true
-      ) fragments
-    in 
     { m with fragments = fragments }
 
 type renderer = rng_view -> module_fragment -> (unit -> Tac string) -> Tac string

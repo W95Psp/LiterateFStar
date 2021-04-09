@@ -12,13 +12,14 @@ let rng_view_lt (r0 r1: rng_view) =
 let range_lt (r0 r1: range) =
   rng_view_lt (inspect_range r0) (inspect_range r1)
 
-let fusion_rng_view r0 r1 =
-  { file_name = r0.file_name; start_pos = r0.start_pos; end_pos = r1.end_pos }
-
 let rng_view_to_string {file_name; start_pos; end_pos}
   = let h (x,y) = string_of_int x ^ "," ^ string_of_int y in
     file_name ^ "@" ^ h start_pos ^ ":" ^ h end_pos
 let range_to_string r = rng_view_to_string (inspect_range r)
+
+
+let fusion_rng_view r0 r1 =
+  { file_name = r0.file_name; start_pos = r0.start_pos; end_pos = r1.end_pos }
 
 let contents_of_file (path: string)
   : Tac string
