@@ -101,8 +101,8 @@ let fusion_as_bundle (rx,x) (ry,y) =
 
 let is_bundle a b 
         = match a, b with
-        | (r0,Comment k0 _), (r1,Comment k1 _) -> k0 <> CommandComment && k0 = k1 && are_ranges_bundle r0 r1
-        | (r0, Declaration _ a0), (r1, Declaration _ a1) -> a0=a1 && are_ranges_bundle r0 r1
+        | (r0,Comment k0 _), (r1,Comment k1 _) -> k0 <> CommandComment && k0 = k1 // && are_ranges_bundle r0 r1
+        | (r0, Declaration _ a0), (r1, Declaration _ a1) -> a0=a1                // && are_ranges_bundle r0 r1
         | _ -> false
 let is_annot_group a b 
     = match a, b with
